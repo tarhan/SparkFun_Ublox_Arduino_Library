@@ -1,14 +1,20 @@
 /*
-  Getting time and date using Ublox commands
-  By: davidallenmann
+  Reading lat, long and UTC time via UBX binary commands - no more NMEA parsing!
+  By: Paul Clark and Nathan Seidle
+  Using the library modifications provided by @blazczak and @geeksville
+  
   SparkFun Electronics
-  Date: April 16th, 2019
+  Date: June 16th, 2020
   License: MIT. See license file for more information but you can
   basically do whatever you want with this code.
 
-  This example shows how to query a Ublox module for the current time and date. We also
-  turn off the NMEA output on the I2C port. This decreases the amount of I2C traffic
+  This example shows how to query a Ublox module for its lat/long/altitude. We also
+  turn off the NMEA output on the I2C port. This decreases the amount of I2C traffic 
   dramatically.
+
+  Note: Long/lat are large numbers because they are * 10^7. To convert lat/long
+  to something google maps understands simply divide the numbers by 10,000,000. We 
+  do this so that we don't have to use floating point numbers.
 
   Leave NMEA parsing behind. Now you can simply ask the module for the datums you want!
 
@@ -26,7 +32,7 @@
 
 #include <Wire.h> //Needed for I2C to GPS
 
-#include "SparkFun_Ublox_Arduino_Library.h" //http://librarymanager/All#SparkFun_Ublox_GPS
+#include "SparkFun_Ublox_Arduino_Library_Series_6_7.h"
 SFE_UBLOX_GPS myGPS;
 
 long lastTime = 0; //Simple local timer. Limits amount if I2C traffic to Ublox module.
@@ -34,21 +40,21 @@ long lastTime = 0; //Simple local timer. Limits amount if I2C traffic to Ublox m
 void setup()
 {
   Serial.begin(115200);
-  while (!Serial)
-    ; //Wait for user to open terminal
+  while (!Serial); //Wait for user to open terminal
   Serial.println("SparkFun Ublox Example");
 
   Wire.begin();
 
+  //myGPS.enableDebugging(); // Uncomment this line to enable debug messages
+
   if (myGPS.begin() == false) //Connect to the Ublox module using Wire port
   {
     Serial.println(F("Ublox GPS not detected at default I2C address. Please check wiring. Freezing."));
-    while (1)
-      ;
+    while (1);
   }
 
   myGPS.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
-  myGPS.saveConfiguration();        //Save the current settings to flash and BBR
+  myGPS.saveConfiguration(); //Save the current settings to flash and BBR
 }
 
 void loop()
@@ -58,7 +64,7 @@ void loop()
   if (millis() - lastTime > 1000)
   {
     lastTime = millis(); //Update the timer
-
+    
     long latitude = myGPS.getLatitude();
     Serial.print(F("Lat: "));
     Serial.print(latitude);
@@ -73,34 +79,30 @@ void loop()
     Serial.print(altitude);
     Serial.print(F(" (mm)"));
 
-    byte SIV = myGPS.getSIV();
-    Serial.print(F(" SIV: "));
-    Serial.print(SIV);
+    Serial.print(F(" Time: "));
 
-    Serial.println();
-    Serial.print(myGPS.getYear());
-    Serial.print("-");
-    Serial.print(myGPS.getMonth());
-    Serial.print("-");
-    Serial.print(myGPS.getDay());
-    Serial.print(" ");
-    Serial.print(myGPS.getHour());
-    Serial.print(":");
-    Serial.print(myGPS.getMinute());
-    Serial.print(":");
-    Serial.print(myGPS.getSecond());
+    byte Hour = myGPS.getHour();
+    if (Hour < 10)
+    {
+      Serial.print(F("0"));
+    }
+    Serial.print(Hour);
+    Serial.print(F(":"));
 
-    Serial.print("  Time is ");
-    if (myGPS.getTimeValid() == false)
+    byte Minute = myGPS.getMinute();
+    if (Minute < 10)
     {
-      Serial.print("not ");
+      Serial.print(F("0"));
     }
-    Serial.print("valid  Date is ");
-    if (myGPS.getDateValid() == false)
+    Serial.print(Minute);
+    Serial.print(F(":"));
+
+    byte Second = myGPS.getSecond();
+    if (Second < 10)
     {
-      Serial.print("not ");
+      Serial.print(F("0"));
     }
-    Serial.print("valid");
+    Serial.print(Second);
 
     Serial.println();
   }

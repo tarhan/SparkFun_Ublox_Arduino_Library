@@ -1,44 +1,53 @@
 /*
-	This is a library written for the Ublox ZED-F9P and NEO-M8P-2
-	SparkFun sells these at its website: www.sparkfun.com
-	Do you like this library? Help support SparkFun. Buy a board!
-	https://www.sparkfun.com/products/15136
-	https://www.sparkfun.com/products/15005
-	https://www.sparkfun.com/products/15733
-	https://www.sparkfun.com/products/15193
-	https://www.sparkfun.com/products/15210
+  This is a library written for the Ublox ZED-F9P and NEO-M8P-2
 
-	Written by Nathan Seidle @ SparkFun Electronics, September 6th, 2018
+  Updated: June 16th, 2020
 
-	This library handles configuring and handling the responses
-	from a Ublox GPS module. Works with most modules from Ublox including
-	the Zed-F9P, NEO-M8P-2, NEO-M9N, ZOE-M8Q, SAM-M8Q, and many others.
+  This copy includes changes by @blazczak and @geeksville to
+  provide support for the older series 6 and 7 modules.
 
-	https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
+  Disclaimer: SparkFun has not verified this copy of the library on either series 6 or 7.
+  It should work, it looks like it will work, but we have no way of confirming this.
+  We cannot guarantee that it will work reliably in your application.
 
-	Development environment specifics:
-	Arduino IDE 1.8.5
+  Do you like this library? Help support SparkFun. Buy a board!
+  https://www.sparkfun.com/products/15136
+  https://www.sparkfun.com/products/15005
+  https://www.sparkfun.com/products/15733
+  https://www.sparkfun.com/products/15193
+  https://www.sparkfun.com/products/15210
 
-	SparkFun code, firmware, and software is released under the MIT License(http://opensource.org/licenses/MIT).
-	The MIT License (MIT)
-	Copyright (c) 2016 SparkFun Electronics
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-	associated documentation files (the "Software"), to deal in the Software without restriction,
-	including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
-	and/or sell copies of the Software, and to permit persons to whom the Software is furnished to
-	do so, subject to the following conditions:
+  Original library written by Nathan Seidle @ SparkFun Electronics, September 6th, 2018
 
-	The above copyright notice and this permission notice shall be included in all copies or substantial
-	portions of the Software.
+  This library handles configuring and handling the responses
+  from a Ublox GPS module. Works with most modules from Ublox including
+  the Zed-F9P, NEO-M8P-2, NEO-M9N, ZOE-M8Q, SAM-M8Q, and many others.
 
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-	NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-	IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-	WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-	SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
+
+  Development environment specifics:
+  Arduino IDE 1.8.5
+
+  SparkFun code, firmware, and software is released under the MIT License(http://opensource.org/licenses/MIT).
+  The MIT License (MIT)
+  Copyright (c) 2016 SparkFun Electronics
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+  associated documentation files (the "Software"), to deal in the Software without restriction,
+  including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+  and/or sell copies of the Software, and to permit persons to whom the Software is furnished to
+  do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or substantial
+  portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+  NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include "SparkFun_Ublox_Arduino_Library.h"
+#include "SparkFun_Ublox_Arduino_Library_Series_6_7.h"
 
 SFE_UBLOX_GPS::SFE_UBLOX_GPS(void)
 {
@@ -903,8 +912,6 @@ void SFE_UBLOX_GPS::processUBXpacket(ubxPacket *msg)
       gpsHour = extractByte(8);
       gpsMinute = extractByte(9);
       gpsSecond = extractByte(10);
-      gpsDateValid = extractByte(11) & 0x01;
-      gpsTimeValid = (extractByte(11) & 0x02) >> 1;
       gpsNanosecond = extractLong(16); //Includes milliseconds
 
       fixType = extractByte(20 - startingSpot);
@@ -926,8 +933,6 @@ void SFE_UBLOX_GPS::processUBXpacket(ubxPacket *msg)
       moduleQueried.gpsHour = true;
       moduleQueried.gpsMinute = true;
       moduleQueried.gpsSecond = true;
-      moduleQueried.gpsDateValid = true;
-      moduleQueried.gpsTimeValid = true;
       moduleQueried.gpsNanosecond = true;
 
       moduleQueried.all = true;
@@ -941,6 +946,49 @@ void SFE_UBLOX_GPS::processUBXpacket(ubxPacket *msg)
       moduleQueried.groundSpeed = true;
       moduleQueried.headingOfMotion = true;
       moduleQueried.pDOP = true;
+    }
+    else if (msg->id == UBX_NAV_TIMEUTC && msg->len == 20)
+    {
+      timeOfWeek = extractLong(0);
+      gpsMillisecond = extractLong(0) % 1000; //Get last three digits of iTOW
+      // extractLong(4); // time accuracy estimate
+      gpsYear = extractInt(12);
+      gpsMonth = extractByte(14);
+      gpsDay = extractByte(15);
+      gpsHour = extractByte(16);
+      gpsMinute = extractByte(17);
+      gpsSecond = extractByte(18);
+      gpsNanosecond = extractLong(8); //Includes milliseconds
+      uint8_t valid = extractByte(19);
+      bool gotTime = (valid & 4) ? true : false; // assume all other fields filled once we have TUTC
+
+      //Mark all datums as fresh (not read before)
+      moduleQueried.gpsiTOW = gotTime; // valid tow
+      moduleQueried.gpsYear = gotTime; // valid week num
+      moduleQueried.gpsMonth = gotTime;
+      moduleQueried.gpsDay = gotTime; // valid UTC
+      moduleQueried.gpsHour = gotTime;
+      moduleQueried.gpsMinute = gotTime;
+      moduleQueried.gpsSecond = gotTime;
+      moduleQueried.gpsNanosecond = gotTime;
+    }
+    else if (msg->id == UBX_NAV_POSLLH && msg->len == 28)
+    {
+      timeOfWeek = extractLong(0);
+      longitude = extractLong(4);
+      latitude = extractLong(8);
+      altitude = extractLong(12);
+      altitudeMSL = extractLong(16);
+      horizontalAccuracy = extractLong(20);
+      verticalAccuracy = extractLong(24);
+
+      moduleQueried.gpsiTOW = true;
+      moduleQueried.longitude = true;
+      moduleQueried.latitude = true;
+      moduleQueried.altitude = true;
+      moduleQueried.altitudeMSL = true;
+      highResModuleQueried.horizontalAccuracy = true;
+      highResModuleQueried.verticalAccuracy = true;
     }
     else if (msg->id == UBX_NAV_HPPOSLLH && msg->len == 36)
     {
@@ -1004,6 +1052,13 @@ void SFE_UBLOX_GPS::processUBXpacket(ubxPacket *msg)
         _debugSerial->print(F(" "));
         _debugSerial->print(F("VERT M: "));
         _debugSerial->println(((float)(int32_t)extractLong(32)) / 10000.0f);
+      }
+    }
+    else {
+      if (_printDebug == true)
+      {
+        _debugSerial->print(F("Unexpected nav packet "));
+        _debugSerial->println(msg->id);
       }
     }
     break;
@@ -2569,129 +2624,6 @@ uint8_t SFE_UBLOX_GPS::getPowerSaveMode(uint16_t maxWait)
   return (payloadCfg[1]); // Return the low power mode
 }
 
-// Powers off the GPS device for a given duration to reduce power consumption.
-// NOTE: Querying the device before the duration is complete, for example by "getLatitude()" will wake it up!
-// Returns true if command has not been not acknowledged.
-// Returns false if command has not been acknowledged or maxWait = 0.
-boolean SFE_UBLOX_GPS::powerOff(uint32_t durationInMs,  uint16_t maxWait)
-{
-  // use durationInMs = 0 for infinite duration
-  if (_printDebug == true)
-  {
-    _debugSerial->print(F("Powering off for "));
-    _debugSerial->print(durationInMs);
-    _debugSerial->println(" ms");
-  }
-
-  // Power off device using UBX-RXM-PMREQ
-  packetCfg.cls = UBX_CLASS_RXM;  // 0x02
-  packetCfg.id =  UBX_RXM_PMREQ;  // 0x41
-  packetCfg.len = 8;
-  packetCfg.startingSpot = 0;
-
-  // duration
-  // big endian to little endian, switch byte order
-  payloadCfg[0] = (durationInMs >> (8*0)) & 0xff;
-  payloadCfg[1] = (durationInMs >> (8*1)) & 0xff;
-  payloadCfg[2] = (durationInMs >> (8*2)) & 0xff;
-  payloadCfg[3] = (durationInMs >> (8*3)) & 0xff;
-
-  payloadCfg[4] = 0x02; //Flags : set the backup bit
-  payloadCfg[5] = 0x00; //Flags
-  payloadCfg[6] = 0x00; //Flags
-  payloadCfg[7] = 0x00; //Flags
-
-  if (maxWait != 0)
-  {
-    // check for "not acknowledged" command
-    return (sendCommand(&packetCfg, maxWait) != SFE_UBLOX_STATUS_COMMAND_NACK);
-  }
-  else
-  {
-    sendCommand(&packetCfg, maxWait);
-    return false; // can't tell if command not acknowledged if maxWait = 0
-  }
-}
-
-// Powers off the GPS device for a given duration to reduce power consumption.
-// While powered off it can be woken up by creating a falling or rising voltage edge on the specified pin.
-// NOTE: The GPS seems to be sensitve to signals on the pins while powered off. Works best when Microcontroller is in deepsleep.
-// NOTE: Querying the device before the duration is complete, for example by "getLatitude()" will wake it up!
-// Returns true if command has not been not acknowledged.
-// Returns false if command has not been acknowledged or maxWait = 0.
-boolean SFE_UBLOX_GPS::powerOffWithInterrupt(uint32_t durationInMs, uint32_t wakeupSources, boolean forceWhileUsb, uint16_t maxWait)
-{
-  // use durationInMs = 0 for infinite duration
-  if (_printDebug == true)
-  {
-    _debugSerial->print(F("Powering off for "));
-    _debugSerial->print(durationInMs);
-    _debugSerial->println(" ms");
-  }
-
-  // Power off device using UBX-RXM-PMREQ
-  packetCfg.cls = UBX_CLASS_RXM;  // 0x02
-  packetCfg.id =  UBX_RXM_PMREQ;  // 0x41
-  packetCfg.len = 16;
-  packetCfg.startingSpot = 0;
-
-  payloadCfg[0] = 0x00; // message version
-
-  // bytes 1-3 are reserved - and must be set to zero
-  payloadCfg[1] = 0x00;
-  payloadCfg[2] = 0x00;
-  payloadCfg[3] = 0x00;
-
-  // duration
-  // big endian to little endian, switch byte order
-  payloadCfg[4] = (durationInMs >> (8*0)) & 0xff;
-  payloadCfg[5] = (durationInMs >> (8*1)) & 0xff;
-  payloadCfg[6] = (durationInMs >> (8*2)) & 0xff;
-  payloadCfg[7] = (durationInMs >> (8*3)) & 0xff;
-
-  // flags
-
-  // disables USB interface when powering off, defaults to true
-  if (forceWhileUsb)
-  {
-    payloadCfg[8] = 0x06; // force | backup
-  }
-  else
-  {
-    payloadCfg[8] = 0x02; // backup only (leave the force bit clear - module will stay on if USB is connected)
-  }
-
-  payloadCfg[9] = 0x00;
-  payloadCfg[10] = 0x00;
-  payloadCfg[11] = 0x00;
-
-  // wakeUpSources
-
-  // wakeupPin mapping, defaults to VAL_RXM_PMREQ_WAKEUPSOURCE_EXTINT0
-
-  // Possible values are:
-  // VAL_RXM_PMREQ_WAKEUPSOURCE_UARTRX
-  // VAL_RXM_PMREQ_WAKEUPSOURCE_EXTINT0
-  // VAL_RXM_PMREQ_WAKEUPSOURCE_EXTINT1
-  // VAL_RXM_PMREQ_WAKEUPSOURCE_SPICS
-
-  payloadCfg[12] = (wakeupSources >> (8*0)) & 0xff;
-  payloadCfg[13] = (wakeupSources >> (8*1)) & 0xff;
-  payloadCfg[14] = (wakeupSources >> (8*2)) & 0xff;
-  payloadCfg[15] = (wakeupSources >> (8*3)) & 0xff;
-
-  if (maxWait != 0)
-  {
-    // check for "not acknowledged" command
-    return (sendCommand(&packetCfg, maxWait) != SFE_UBLOX_STATUS_COMMAND_NACK);
-  }
-  else
-  {
-    sendCommand(&packetCfg, maxWait);
-    return false; // can't tell if command not acknowledged if maxWait = 0
-  }
-}
-
 //Change the dynamic platform model using UBX-CFG-NAV5
 //Possible values are:
 //PORTABLE,STATIONARY,PEDESTRIAN,AUTOMOTIVE,SEA,
@@ -2771,7 +2703,7 @@ int8_t SFE_UBLOX_GPS::extractSignedChar(uint8_t spotToStart)
 uint16_t SFE_UBLOX_GPS::getYear(uint16_t maxWait)
 {
   if (moduleQueried.gpsYear == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsYear = false; //Since we are about to give this to user, mark this data as stale
   return (gpsYear);
 }
@@ -2780,7 +2712,7 @@ uint16_t SFE_UBLOX_GPS::getYear(uint16_t maxWait)
 uint8_t SFE_UBLOX_GPS::getMonth(uint16_t maxWait)
 {
   if (moduleQueried.gpsMonth == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsMonth = false; //Since we are about to give this to user, mark this data as stale
   return (gpsMonth);
 }
@@ -2789,7 +2721,7 @@ uint8_t SFE_UBLOX_GPS::getMonth(uint16_t maxWait)
 uint8_t SFE_UBLOX_GPS::getDay(uint16_t maxWait)
 {
   if (moduleQueried.gpsDay == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsDay = false; //Since we are about to give this to user, mark this data as stale
   return (gpsDay);
 }
@@ -2798,7 +2730,7 @@ uint8_t SFE_UBLOX_GPS::getDay(uint16_t maxWait)
 uint8_t SFE_UBLOX_GPS::getHour(uint16_t maxWait)
 {
   if (moduleQueried.gpsHour == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsHour = false; //Since we are about to give this to user, mark this data as stale
   return (gpsHour);
 }
@@ -2807,7 +2739,7 @@ uint8_t SFE_UBLOX_GPS::getHour(uint16_t maxWait)
 uint8_t SFE_UBLOX_GPS::getMinute(uint16_t maxWait)
 {
   if (moduleQueried.gpsMinute == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsMinute = false; //Since we are about to give this to user, mark this data as stale
   return (gpsMinute);
 }
@@ -2816,34 +2748,16 @@ uint8_t SFE_UBLOX_GPS::getMinute(uint16_t maxWait)
 uint8_t SFE_UBLOX_GPS::getSecond(uint16_t maxWait)
 {
   if (moduleQueried.gpsSecond == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsSecond = false; //Since we are about to give this to user, mark this data as stale
   return (gpsSecond);
-}
-
-//Get the current date validity
-bool SFE_UBLOX_GPS::getDateValid(uint16_t maxWait)
-{
-  if (moduleQueried.gpsDateValid == false)
-    getPVT(maxWait);
-  moduleQueried.gpsDateValid = false; //Since we are about to give this to user, mark this data as stale
-  return (gpsDateValid);
-}
-
-//Get the current time validity
-bool SFE_UBLOX_GPS::getTimeValid(uint16_t maxWait)
-{
-  if (moduleQueried.gpsTimeValid == false)
-    getPVT(maxWait);
-  moduleQueried.gpsTimeValid = false; //Since we are about to give this to user, mark this data as stale
-  return (gpsTimeValid);
 }
 
 //Get the current millisecond
 uint16_t SFE_UBLOX_GPS::getMillisecond(uint16_t maxWait)
 {
   if (moduleQueried.gpsiTOW == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsiTOW = false; //Since we are about to give this to user, mark this data as stale
   return (gpsMillisecond);
 }
@@ -2852,7 +2766,7 @@ uint16_t SFE_UBLOX_GPS::getMillisecond(uint16_t maxWait)
 int32_t SFE_UBLOX_GPS::getNanosecond(uint16_t maxWait)
 {
   if (moduleQueried.gpsNanosecond == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsNanosecond = false; //Since we are about to give this to user, mark this data as stale
   return (gpsNanosecond);
 }
@@ -2907,10 +2821,72 @@ boolean SFE_UBLOX_GPS::getPVT(uint16_t maxWait)
   }
 }
 
+// Update time info (using appropriate call for the chip series)
+boolean SFE_UBLOX_GPS::getTimeData(uint16_t maxWait)
+{
+  return getProtocolVersionHigh(maxWait) < 15 ? getTIMEUTC(maxWait) : getPVT(maxWait);
+}
+
+// Update position info (using appropriate call for the chip series)
+boolean SFE_UBLOX_GPS::getPositionData(uint16_t maxWait)
+{
+  return getProtocolVersionHigh(maxWait) < 20 ? getPOSLLH(maxWait) : getPVT(maxWait);
+}
+
+//Get time (for use on chips with protocol version 14 and earlier)
+boolean SFE_UBLOX_GPS::getTIMEUTC(uint16_t maxWait)
+{
+  debugPrintln((char *)F("getTIMEUTC: Polling"));
+
+  //The GPS is not automatically reporting navigation position so we have to poll explicitly
+  packetCfg.cls = UBX_CLASS_NAV;
+  packetCfg.id = UBX_NAV_TIMEUTC;
+  packetCfg.len = 0;
+  //packetCfg.startingSpot = 20; //Begin listening at spot 20 so we can record up to 20+MAX_PAYLOAD_SIZE = 84 bytes Note:now hard-coded in processUBX
+
+  //The data is parsed as part of processing the response
+  sfe_ublox_status_e retVal = sendCommand(&packetCfg, maxWait);
+
+  if (retVal == SFE_UBLOX_STATUS_DATA_RECEIVED)
+    return (true);
+
+  if (_printDebug == true)
+  {
+    _debugSerial->print(F("getTIMEUTC retVal: "));
+    _debugSerial->println(statusString(retVal));
+  }
+  return (false);
+}
+
+//Get posllh (fos use on chips with protocol version 19 and earlier)
+boolean SFE_UBLOX_GPS::getPOSLLH(uint16_t maxWait)
+{
+  debugPrintln((char *)F("getPOSLLH: Polling"));
+
+  //The GPS is not automatically reporting navigation position so we have to poll explicitly
+  packetCfg.cls = UBX_CLASS_NAV;
+  packetCfg.id = UBX_NAV_POSLLH;
+  packetCfg.len = 0;
+  //packetCfg.startingSpot = 20; //Begin listening at spot 20 so we can record up to 20+MAX_PAYLOAD_SIZE = 84 bytes Note:now hard-coded in processUBX
+
+  //The data is parsed as part of processing the response
+  sfe_ublox_status_e retVal = sendCommand(&packetCfg, maxWait);
+
+  if (retVal == SFE_UBLOX_STATUS_DATA_RECEIVED)
+    return (true);
+
+  if (_printDebug == true)
+  {
+    _debugSerial->print(F("getPOSLLH retVal: "));
+    _debugSerial->println(statusString(retVal));
+  }
+  return (false);
+}
+
 uint32_t SFE_UBLOX_GPS::getTimeOfWeek(uint16_t maxWait /* = 250*/)
 {
   if (moduleQueried.gpsiTOW == false)
-    getPVT(maxWait);
+    getTimeData(maxWait);
   moduleQueried.gpsiTOW = false; //Since we are about to give this to user, mark this data as stale
   return (timeOfWeek);
 }
@@ -3040,7 +3016,7 @@ uint32_t SFE_UBLOX_GPS::getPositionAccuracy(uint16_t maxWait)
 int32_t SFE_UBLOX_GPS::getLatitude(uint16_t maxWait)
 {
   if (moduleQueried.latitude == false)
-    getPVT(maxWait);
+    getPositionData(maxWait);
   moduleQueried.latitude = false; //Since we are about to give this to user, mark this data as stale
   moduleQueried.all = false;
 
@@ -3052,7 +3028,7 @@ int32_t SFE_UBLOX_GPS::getLatitude(uint16_t maxWait)
 int32_t SFE_UBLOX_GPS::getLongitude(uint16_t maxWait)
 {
   if (moduleQueried.longitude == false)
-    getPVT(maxWait);
+    getPositionData(maxWait);
   moduleQueried.longitude = false; //Since we are about to give this to user, mark this data as stale
   moduleQueried.all = false;
 
@@ -3063,7 +3039,7 @@ int32_t SFE_UBLOX_GPS::getLongitude(uint16_t maxWait)
 int32_t SFE_UBLOX_GPS::getAltitude(uint16_t maxWait)
 {
   if (moduleQueried.altitude == false)
-    getPVT(maxWait);
+    getPositionData(maxWait);
   moduleQueried.altitude = false; //Since we are about to give this to user, mark this data as stale
   moduleQueried.all = false;
 
@@ -3076,7 +3052,7 @@ int32_t SFE_UBLOX_GPS::getAltitude(uint16_t maxWait)
 int32_t SFE_UBLOX_GPS::getAltitudeMSL(uint16_t maxWait)
 {
   if (moduleQueried.altitudeMSL == false)
-    getPVT(maxWait);
+    getPositionData(maxWait);
   moduleQueried.altitudeMSL = false; //Since we are about to give this to user, mark this data as stale
   moduleQueried.all = false;
 
@@ -3235,8 +3211,6 @@ void SFE_UBLOX_GPS::flushPVT()
   moduleQueried.gpsHour = false;
   moduleQueried.gpsMinute = false;
   moduleQueried.gpsSecond = false;
-  moduleQueried.gpsDateValid = false;
-  moduleQueried.gpsTimeValid = false;
   moduleQueried.gpsNanosecond = false;
 
   moduleQueried.all = false;

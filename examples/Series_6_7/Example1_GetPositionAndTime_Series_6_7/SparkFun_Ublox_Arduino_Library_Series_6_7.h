@@ -1,41 +1,50 @@
 /*
-	This is a library written for the Ublox ZED-F9P and NEO-M8P-2
-	SparkFun sells these at its website: www.sparkfun.com
-	Do you like this library? Help support SparkFun. Buy a board!
-	https://www.sparkfun.com/products/15136
-	https://www.sparkfun.com/products/15005
-	https://www.sparkfun.com/products/15733
-	https://www.sparkfun.com/products/15193
-	https://www.sparkfun.com/products/15210
+  This is a library written for the Ublox ZED-F9P and NEO-M8P-2
 
-	Written by Nathan Seidle @ SparkFun Electronics, September 6th, 2018
+  Updated: June 16th, 2020
 
-	This library handles configuring and handling the responses
-	from a Ublox GPS module. Works with most modules from Ublox including
-	the Zed-F9P, NEO-M8P-2, NEO-M9N, ZOE-M8Q, SAM-M8Q, and many others.
+  This copy includes changes by @blazczak and @geeksville to
+  provide support for the older series 6 and 7 modules.
 
-	https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
+  Disclaimer: SparkFun has not verified this copy of the library on either series 6 or 7.
+  It should work, it looks like it will work, but we have no way of confirming this.
+  We cannot guarantee that it will work reliably in your application.
 
-	Development environment specifics:
-	Arduino IDE 1.8.5
+  Do you like this library? Help support SparkFun. Buy a board!
+  https://www.sparkfun.com/products/15136
+  https://www.sparkfun.com/products/15005
+  https://www.sparkfun.com/products/15733
+  https://www.sparkfun.com/products/15193
+  https://www.sparkfun.com/products/15210
 
-	SparkFun code, firmware, and software is released under the MIT License(http://opensource.org/licenses/MIT).
-	The MIT License (MIT)
-	Copyright (c) 2016 SparkFun Electronics
-	Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-	associated documentation files (the "Software"), to deal in the Software without restriction,
-	including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
-	and/or sell copies of the Software, and to permit persons to whom the Software is furnished to
-	do so, subject to the following conditions:
+  Original library written by Nathan Seidle @ SparkFun Electronics, September 6th, 2018
 
-	The above copyright notice and this permission notice shall be included in all copies or substantial
-	portions of the Software.
+  This library handles configuring and handling the responses
+  from a Ublox GPS module. Works with most modules from Ublox including
+  the Zed-F9P, NEO-M8P-2, NEO-M9N, ZOE-M8Q, SAM-M8Q, and many others.
 
-	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-	NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-	IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-	WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-	SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+  https://github.com/sparkfun/SparkFun_Ublox_Arduino_Library
+
+  Development environment specifics:
+  Arduino IDE 1.8.5
+
+  SparkFun code, firmware, and software is released under the MIT License(http://opensource.org/licenses/MIT).
+  The MIT License (MIT)
+  Copyright (c) 2016 SparkFun Electronics
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+  associated documentation files (the "Software"), to deal in the Software without restriction,
+  including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense,
+  and/or sell copies of the Software, and to permit persons to whom the Software is furnished to
+  do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or substantial
+  portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+  NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+  IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+  WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
 #ifndef SPARKFUN_UBLOX_ARDUINO_LIBRARY_H
@@ -407,12 +416,6 @@ const uint32_t VAL_CFG_SUBSEC_ANTCONF = 0x00000400;	 // antConf - antenna config
 const uint32_t VAL_CFG_SUBSEC_LOGCONF = 0x00000800;	 // logConf - logging configuration
 const uint32_t VAL_CFG_SUBSEC_FTSCONF = 0x00001000;	 // ftsConf - FTS configuration (FTS products only)
 
-// Bitfield wakeupSources for UBX_RXM_PMREQ
-const uint32_t VAL_RXM_PMREQ_WAKEUPSOURCE_UARTRX = 0x00000008; // uartrx
-const uint32_t VAL_RXM_PMREQ_WAKEUPSOURCE_EXTINT0 = 0x00000020; // extint0
-const uint32_t VAL_RXM_PMREQ_WAKEUPSOURCE_EXTINT1 = 0x00000040; // extint1
-const uint32_t VAL_RXM_PMREQ_WAKEUPSOURCE_SPICS = 0x00000080; // spics
-
 enum dynModel // Possible values for the dynamic platform model, which provide more accuract position output for the situation. Description extracted from ZED-F9P Integration Manual
 {
 	DYN_MODEL_PORTABLE = 0, //Applications with low acceleration, e.g. portable devices. Suitable for most situations.
@@ -537,9 +540,14 @@ public:
 
 	boolean assumeAutoPVT(boolean enabled, boolean implicitUpdate = true);							//In case no config access to the GPS is possible and PVT is send cyclically already
 	boolean setAutoPVT(boolean enabled, uint16_t maxWait = defaultMaxWait);							//Enable/disable automatic PVT reports at the navigation frequency
-	boolean getPVT(uint16_t maxWait = getPVTmaxWait);												//Query module for latest group of datums and load global vars: lat, long, alt, speed, SIV, accuracies, etc. If autoPVT is disabled, performs an explicit poll and waits, if enabled does not block. Retruns true if new PVT is available.
+	boolean getPVT(uint16_t maxWait = getPVTmaxWait);												//Query module for latest group of datums and load global vars: lat, long, alt, speed, SIV, accuracies, etc. If autoPVT is disabled, performs an explicit poll and waits, if enabled does not block. Returns true if new PVT is available.
+	boolean getTimeData(uint16_t maxWait = getPVTmaxWait);                  //Query module for latest time data. Calls getPVT or getTIMEUTC depending on which module is attached.
+	boolean getPositionData(uint16_t maxWait = getPVTmaxWait);              //Query module for latest position data. Calls getPVT or getPOSLLH depending on which module is attached.
+	boolean getTIMEUTC(uint16_t maxWait = getPVTmaxWait);                   //Query module for current time (for use with older chip series). Returns true if new data is available.
+	boolean getPOSLLH(uint16_t maxWait = getPVTmaxWait);                    //Query module for current position (for use with older chip series). Returns true if new data is available.
+
 	boolean setAutoPVT(boolean enabled, boolean implicitUpdate, uint16_t maxWait = defaultMaxWait); //Enable/disable automatic PVT reports at the navigation frequency, with implicitUpdate == false accessing stale data will not issue parsing of data in the rxbuffer of your interface, instead you have to call checkUblox when you want to perform an update
-	boolean getHPPOSLLH(uint16_t maxWait = getHPPOSLLHmaxWait);										//Query module for latest group of datums and load global vars: lat, long, alt, speed, SIV, accuracies, etc. If autoPVT is disabled, performs an explicit poll and waits, if enabled does not block. Retruns true if new PVT is available.
+	boolean getHPPOSLLH(uint16_t maxWait = getHPPOSLLHmaxWait);										//Query module for latest group of datums and load global vars: lat, long, alt, speed, SIV, accuracies, etc. If autoPVT is disabled, performs an explicit poll and waits, if enabled does not block. Returns true if new PVT is available.
 	void flushPVT();																				//Mark all the PVT data as read/stale. This is handy to get data alignment after CRC failure
 
 	int32_t getLatitude(uint16_t maxWait = getPVTmaxWait);			  //Returns the current latitude in degrees * 10^-7. Auto selects between HighPrecision and Regular depending on ability of module.
@@ -561,8 +569,6 @@ public:
 	uint16_t getMillisecond(uint16_t maxWait = getPVTmaxWait);
 	int32_t getNanosecond(uint16_t maxWait = getPVTmaxWait);
 	uint32_t getTimeOfWeek(uint16_t maxWait = getPVTmaxWait);
-	bool getDateValid(uint16_t maxWait = getPVTmaxWait);
-	bool getTimeValid(uint16_t maxWait = getPVTmaxWait);
 
 	int32_t getHighResLatitude(uint16_t maxWait = getHPPOSLLHmaxWait);
 	int8_t getHighResLatitudeHp(uint16_t maxWait = getHPPOSLLHmaxWait);
@@ -647,8 +653,6 @@ public:
 
 	boolean powerSaveMode(bool power_save = true, uint16_t maxWait = 1100);
 	uint8_t getPowerSaveMode(uint16_t maxWait = 1100); // Returns 255 if the sendCommand fails
-	boolean powerOff(uint32_t durationInMs, uint16_t maxWait = 1100);
-	boolean powerOffWithInterrupt(uint32_t durationInMs, uint32_t wakeupSources = VAL_RXM_PMREQ_WAKEUPSOURCE_EXTINT0, boolean forceWhileUsb = true, uint16_t maxWait = 1100);
 
 	//Change the dynamic platform model using UBX-CFG-NAV5
 	boolean setDynamicModel(dynModel newDynamicModel = DYN_MODEL_PORTABLE, uint16_t maxWait = 1100);
@@ -709,8 +713,6 @@ public:
 	uint8_t gpsSecond;
 	uint16_t gpsMillisecond;
 	int32_t gpsNanosecond;
-	bool gpsDateValid;
-	bool gpsTimeValid;
 
 	int32_t latitude;		 //Degrees * 10^-7 (more accurate than floats)
 	int32_t longitude;		 //Degrees * 10^-7 (more accurate than floats)
@@ -891,8 +893,6 @@ private:
 		uint32_t gpsHour : 1;
 		uint32_t gpsMinute : 1;
 		uint32_t gpsSecond : 1;
-		uint32_t gpsDateValid : 1;
-		uint32_t gpsTimeValid : 1;
 		uint32_t gpsNanosecond : 1;
 
 		uint32_t all : 1;
